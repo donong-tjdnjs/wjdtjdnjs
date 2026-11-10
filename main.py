@@ -27,21 +27,20 @@ st.markdown(
 """
 )
 
-# 데이터 로드 확인용 캐시 함수
+# 데이터 로드 (로컬 파일 또는 깃허브 경로 직접 지정)
 @st.cache_data
 def load_data():
-    # UCI Energy Efficiency 데이터셋 (공개된 정제 소스 활용)
-    url = "https://raw.githubusercontent.com/greatsong/modudata/main/data/energy_efficiency.csv"
+    # 1순위: 로컬에 업로드된 파일 읽기 (가장 안전함)
     try:
-        df = pd.read_csv(url)
+        df = pd.read_csv("energy_efficiency.csv")
     except:
-        # 혹시 모를 로드 실패 시 예시 구조 대응
-        df = None
+        # 2순위: 깃허브 등 외부 URL 링크 읽기
+        url = "https://raw.githubusercontent.com/greatsong/modudata/main/data/energy_efficiency.csv"
+        df = pd.read_csv(url)
     return df
 
-df = load_data()
-
-if df is not None:
+try:
+    df = load_data()
     st.success("✅ 데이터가 성공적으로 로드되었습니다!")
     st.subheader("📋 원본 데이터 미리보기 (처음 5행)")
     st.dataframe(df.head())
@@ -50,5 +49,5 @@ if df is not None:
     col1.metric("총 데이터 샘플 수", f"{len(df)}개")
     col2.metric("특성(컬럼) 수", f"{df.shape[1]}개")
     col3.metric("타겟 변수", "냉방/난방 부하")
-else:
-    st.error("데이터를 불러오는 중 문제가 발생했습니다. 인터넷 연결이나 URL을 확인해주세요.")
+except Exception as e:
+    st.error(f"데이터를 불러오는 중 문제가 발생했습니다. 오류 내용: {e}")
