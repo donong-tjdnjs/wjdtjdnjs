@@ -9,7 +9,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 st.set_page_config(page_title="공공건축물 에너지 심층 분석 및 시뮬레이터", layout="wide", page_icon="📊")
 
 st.title("📊 공공건축물 에너지 소비량 분석 및 예측 시스템")
-st.markdown("##### 각 탭(Tab)을 통해 건축물 특성별 분석부터 머신러닝 예측, 실시간 시뮬레이션까지 체계적으로 확인할 수 있습니다.")
+st.markdown("##### 5가지 탐구 주제에 따라 데이터 분석, 머신러닝 평가, 실시간 시뮬레이션을 체계적으로 수행합니다.")
 st.markdown("---")
 
 @st.cache_data
@@ -28,21 +28,22 @@ df = load_clean_data()
 target_col = '연간 단위면적당 1차 에너지 소비량 3개년 평균'
 
 # -------------------------------------------------------------
-# 4개의 독립된 탭으로 구성하여 각 분석 단계(소질문)가 1:1로 정확히 매칭되도록 설계
+# 5개의 소질문 주제에 정확히 대응하는 5개의 독립된 탭(Tab) 구성
 # -------------------------------------------------------------
-tab_region, tab_usage, tab_ml, tab_sim = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🗺️ 1. 지역별 기후 권역 분석", 
     "🏢 2. 건축 용도별 에너지 분석", 
-    "🤖 3. 머신러닝 예측 모델 평가", 
-    "🎛️ 4. 실시간 설계 시뮬레이터"
+    "📐 3. 규모(연면적·층수) 특성 분석", 
+    "🤖 4. 머신러닝 예측 모델 평가", 
+    "🎛️ 5. 실시간 설계 시뮬레이터"
 ])
 
 # =============================================================
-# [탭 1] 지역구분별 에너지 소비량 분석 (소질문 대응)
+# [탭 1] 소질문 1: 지역구분별 에너지 소비량 비교 분석
 # =============================================================
-with tab_region:
-    st.header("🗺️ 기후 권역(지역구분)에 따른 단위면적당 에너지 소비량 비교")
-    st.write("우리나라의 지역별 기후 및 외기 온도 차이가 공공건축물의 에너지 소비 효율에 미치는 영향을 분석합니다.")
+with tab1:
+    st.header("🗺️ [소질문 1] 기후 권역(지역구분)에 따른 단위면적당 에너지 소비량 편차 분석")
+    st.write("우리나라의 지역별 기후 및 외기 온도 차이가 공공건축물의 에너지 소비 효율에 미치는 영향을 비교합니다.")
     
     region_avg = df.groupby('지역구분')[target_col].mean().reset_index().sort_values(by=target_col, ascending=False)
     
@@ -78,11 +79,11 @@ with tab_region:
     """)
 
 # =============================================================
-# [탭 2] 건축 용도별 에너지 집약도 분석 (소질문 대응)
+# [탭 2] 소질문 2: 건축 용도별 에너지 집약도 비교 분석 (업무시설 왜곡 해결)
 # =============================================================
-with tab_usage:
-    st.header("🏢 건축물 주용도별(업무시설, 교육시설 등) 에너지 집약도 비교")
-    st.write("건축물의 사용 목적과 내부 설비 가동 특성에 따라 에너지 소비량이 어떻게 달라지는지 비교합니다.")
+with tab2:
+    st.header("🏢 [소질문 2] 건축물 주용도별(업무시설, 교육시설 등) 에너지 집약도 비교 분석")
+    st.write("건축물의 사용 목적과 내부 설비 가동 특성에 따라 에너지 소비량이 어떻게 달라지는지 비교합니다. (업무시설 포함)")
     
     usage_list = sorted(df['용도'].unique())
     default_selected = usage_list[:3] if len(usage_list) >= 3 else usage_list
@@ -94,8 +95,12 @@ with tab_usage:
         key="usage_multiselect"
     )
     
-    with st.expander("🔍 [그래프 보기 설정] 연면적 축 범위 조절"):
-        max_area_limit = st.slider("X축 최대 연면적 (㎡)", min_value=10000, max_value=200000, value=60000, step=10000, key="area_slider")
+    # 업무시설 등의 초대형 건물로 인한 뭉침 현상을 방지하기 위한 축 범위 조절 및 로그 스케일 옵션
+    c_opt1, c_opt2 = st.columns(2)
+    with c_opt1:
+        max_area_limit = st.slider("X축 최대 연면적 보기 범위 (㎡)", min_value=10000, max_value=300000, value=70000, step=10000, key="area_slider")
+    with c_opt2:
+        use_log_scale = st.checkbox("🔄 X축(연면적) 로그 스케일 적용 (초대형 업무시설 비교 용이)", value=False)
     
     if selected_usages:
         filtered_df = df[df['용도'].isin(selected_usages)]
@@ -108,15 +113,21 @@ with tab_usage:
                 color="용도",
                 size="규모(지상)",
                 hover_name="건축물명",
-                title="선택된 용도별 연면적 대비 에너지 소비량 분산 비교",
-                labels={"연면적": "연면적 (㎡)", target_col: "단위면적당 에너지 소비량 (kWh/㎡)"},
-                range_x=[0, max_area_limit]
+                title="선택된 용도별 연면적 대비 에너지 소비량 비교",
+                labels={"연면적": "연면적 (㎡)", target_col: "단위면적당 에너지 소비량 (kWh/㎡)"}
             )
+            
+            if use_log_scale:
+                fig_scatter.update_xaxes(type="log")
+                fig_scatter.update_layout(title="선택된 용도별 연면적 대비 에너지 소비량 비교 (로그 스케일)")
+            else:
+                fig_scatter.update_xaxes(range=[0, max_area_limit])
+                
             st.plotly_chart(fig_scatter, use_container_width=True)
             
             st.success("""
             💡 **[분석 결과 및 도출 결론]**
-            * **결론**: 업무시설과 교육연구시설 등 용도에 따라 고유의 에너지 소비 밀집 구간이 존재합니다. 업무시설의 경우 대형 건물일수록 에너지 집약도가 특정 범위 내로 수렴하는 경향을 보입니다.
+            * **결론**: 업무시설과 교육연구시설 등을 함께 비교해 볼 때, 업무시설은 연면적이 수만 ㎡ 이상으로 넓어지더라도 에너지 집약도가 특정 밀집 구간 내에 형성되는 특성을 보입니다. 로그 스케일을 통해 초대형 업무시설의 분포도 왜곡 없이 선명하게 확인할 수 있습니다.
             * **시사점**: 건물 용도 특성을 반영한 차별화된 에너지 목표 관리 기준 수립이 필요합니다.
             """)
         else:
@@ -125,11 +136,42 @@ with tab_usage:
         st.warning("비교를 위해 최소 1개 이상의 건축물 용도를 선택해 주세요.")
 
 # =============================================================
-# [탭 3] 머신러닝 모델 학습 및 성능 평가 (소질문 대응)
+# [탭 3] 소질문 3: 건축물 규모(연면적 및 지상 층수)와 에너지 소비의 상관관계 분석
 # =============================================================
-with tab_ml:
-    st.header("🤖 선형회귀(Linear Regression) 기반 에너지 예측 모델 검증")
-    st.write("건물의 물리적 규모 요인(연면적, 지상 층수)을 독립 변수로 활용하여 에너지 소비량을 예측하는 AI 모델을 학습하고 성능을 평가합니다.")
+with tab3:
+    st.header("📐 [소질문 3] 건축물 규모(연면적 및 지상 층수)와 에너지 소비량의 상관관계 분석")
+    st.write("건물의 물리적 크기(연면적, 층수)가 커질수록 단위면적당 에너지 효율에 어떤 상관관계가 작용하는지 분석합니다.")
+    
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        fig_corr1 = px.scatter(
+            df, x="연면적", y=target_col, opacity=0.6, color_discrete_sequence=["#2ca02c"],
+            title="연면적과 단위면적당 에너지 소비량 상관성",
+            labels={"연면적": "연면적 (㎡)", target_col: "에너지 소비량 (kWh/㎡)"},
+            range_x=[0, 100000]
+        )
+        st.plotly_chart(fig_corr1, use_container_width=True)
+    with col_s2:
+        fig_corr2 = px.scatter(
+            df, x="규모(지상)", y=target_col, opacity=0.6, color_discrete_sequence=["#ff7f0e"],
+            title="지상 층수와 단위면적당 에너지 소비량 상관성",
+            labels={"규모(지상)": "지상 층수 (층)", target_col: "에너지 소비량 (kWh/㎡)"},
+            range_x=[0, 30]
+        )
+        st.plotly_chart(fig_corr2, use_container_width=True)
+        
+    st.success("""
+    💡 **[분석 결과 및 도출 결론]**
+    * **결론**: 연면적이 증가함에 따라 단위면적당 에너지 소비량의 분산 폭이 점진적으로 수렴하는 경향을 보이며, 지상 층수 역시 일정 높이 이상에서 에너지 부하 패턴에 유의미한 상관관계를 나타냅니다.
+    * **시사점**: 건물의 규모 특성은 에너지 예측 모델의 핵심 독립 변수로 기능하기에 매우 적합합니다.
+    """)
+
+# =============================================================
+# [탭 4] 소질문 4: 머신러닝 예측 모델 학습 및 성능 평가
+# =============================================================
+with tab4:
+    st.header("🤖 [소질문 4] 선형회귀(Linear Regression) 기반 에너지 예측 모델 학습 및 성능 검증")
+    st.write("연면적과 지상 층수를 독립 변수로 활용하여 공공건축물의 에너지 소비량을 예측하는 AI 모델을 학습하고 정확도를 검증합니다.")
     
     features = ['연면적', '규모(지상)']
     X = df[features]
@@ -160,11 +202,11 @@ with tab_ml:
     """)
 
 # =============================================================
-# [탭 4] 실시간 설계 시뮬레이터 및 게이지 (소질문 대응)
+# [탭 5] 소질문 5: 실시간 설계 조건 변경 및 최적화 시뮬레이터
 # =============================================================
-with tab_sim:
-    st.header("🎛️ 건축물 설계 조건별 실시간 에너지 소비량 예측 시뮬레이터")
-    st.write("슬라이더를 조절하여 가상의 건축물 규모를 설정하고, AI 모델이 즉각 연산하는 예상 에너지 소비량과 게이지 계기판을 확인하세요.")
+with tab5:
+    st.header("🎛️ [소질문 5] 건축물 설계 조건 변경에 따른 에너지 소비량 실시간 시뮬레이터")
+    st.write("슬라이더를 조절하여 가상의 건축물 규모를 설정하고, 학습된 AI 모델이 즉각 연산하는 예상 에너지 소비량과 게이지 계기판을 확인하세요.")
     
     sim_col1, sim_col2 = st.columns([1, 1.2])
     
@@ -225,14 +267,3 @@ with tab_sim:
                 'threshold': {
                     'line': {'color': "red", 'width': 4},
                     'thickness': 0.75,
-                    'value': avg_val
-                }
-            }
-        ))
-        fig_gauge.update_layout(height=340, margin=dict(l=20, r=20, t=50, b=20))
-        st.plotly_chart(fig_gauge, use_container_width=True)
-        
-    if pred_val < avg_val:
-        st.success(f"✅ **[시뮬레이션 최종 결론]**: 연면적 `{v_area:,.0f}㎡`, 지상 `{v_floor:.0f}층` 조건은 공공건축물 평균보다 에너지 소비가 적어 **친환경 고효율 설계**에 적합합니다.")
-    else:
-        st.warning(f"⚠️ **[시뮬레이션 최종 결론]**: 해당 규모의 건축물은 평균보다 에너지 소비량이 높을 것으로 예측되므로, **고효율 단열재 및 친환경 설비 설계** 도입이 강력히 권장됩니다.")
