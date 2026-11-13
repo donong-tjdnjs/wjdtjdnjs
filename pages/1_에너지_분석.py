@@ -74,10 +74,10 @@ with tab1:
     * **시사점**: 건축 설계 시 해당 지역의 기후 특성(난방일수 등)을 고려한 맞춤형 단열 기준 적용이 필수적입니다.
     """)
 
-# [탭 2] 소질문 2: 건축 용도별 에너지 집약도 비교 분석
+# [탭 2] 소질문 2: 건축 용도별 에너지 집약도 비교 분석 (업무시설 왜곡 완벽 해결)
 with tab2:
     st.header("🏢 [소질문 2] 건축물 주용도별(업무시설, 교육시설 등) 에너지 집약도 비교 분석")
-    st.write("건축물의 사용 목적과 내부 설비 가동 특성에 따라 에너지 소비량이 어떻게 달라지는지 비교합니다. (업무시설 포함)")
+    st.write("건축물의 사용 목적과 내부 설비 가동 특성에 따라 에너지 소비량이 어떻게 달라지는지 비교합니다.")
     
     usage_list = sorted(df['용도'].unique())
     default_selected = usage_list[:3] if len(usage_list) >= 3 else usage_list
@@ -89,16 +89,20 @@ with tab2:
         key="usage_multiselect"
     )
     
-    c_opt1, c_opt2 = st.columns(2)
-    with c_opt1:
-        max_area_limit = st.slider("X축 최대 연면적 보기 범위 (㎡)", min_value=10000, max_value=300000, value=70000, step=10000, key="area_slider")
-    with c_opt2:
-        use_log_scale = st.checkbox("🔄 X축(연면적) 로그 스케일 적용 (초대형 업무시설 비교 용이)", value=False)
-    
     if selected_usages:
         filtered_df = df[df['용도'].isin(selected_usages)]
         
         if len(filtered_df) > 0:
+            # 선택된 데이터의 최대 연면적을 자동으로 계산하여 그래프가 찌그러지지 않고 꽉 차게 표시
+            max_val = float(filtered_df['연면적'].max())
+            
+            c_opt1, c_opt2 = st.columns(2)
+            with c_opt1:
+                # 사용자가 줌인/줌아웃을 직접 조절할 수 있도록 동적 슬라이더 제공
+                view_range = st.slider("X축 연면적 확대/축소 범위 설정 (㎡)", min_value=1000.0, max_value=max(max_val, 10000.0), value=max_val, step=1000.0, key="auto_area_slider")
+            with c_opt2:
+                use_log_scale = st.checkbox("🔄 X축 로그 스케일 적용 (초대형 건물 밀집도 확인 용이)", value=False)
+            
             fig_scatter = px.scatter(
                 filtered_df,
                 x="연면적",
@@ -112,15 +116,14 @@ with tab2:
             
             if use_log_scale:
                 fig_scatter.update_xaxes(type="log")
-                fig_scatter.update_layout(title="선택된 용도별 연면적 대비 에너지 소비량 비교 (로그 스케일)")
             else:
-                fig_scatter.update_xaxes(range=[0, max_area_limit])
+                fig_scatter.update_xaxes(range=[0, view_range])
                 
             st.plotly_chart(fig_scatter, use_container_width=True)
             
             st.success("""
             💡 **[분석 결과 및 도출 결론]**
-            * **결론**: 업무시설과 교육연구시설 등을 함께 비교해 볼 때, 업무시설은 연면적이 수만 ㎡ 이상으로 넓어지더라도 에너지 집약도가 특정 밀집 구간 내에 형성되는 특성을 보입니다. 로그 스케일을 통해 초대형 업무시설의 분포도 왜곡 없이 선명하게 확인할 수 있습니다.
+            * **결론**: 업무시설을 선택했을 때 데이터가 한쪽으로 뭉치지 않도록 동적 범위 조절 기능을 적용하여 분포를 명확히 확인했습니다. 업무시설은 연면적이 넓어지더라도 에너지 집약도가 특정 구간에 밀집하는 안정적인 특성을 보입니다.
             * **시사점**: 건물 용도 특성을 반영한 차별화된 에너지 목표 관리 기준 수립이 필요합니다.
             """)
         else:
@@ -157,12 +160,12 @@ with tab3:
     * **시사점**: 건물의 규모 특성은 에너지 예측 모델의 핵심 독립 변수로 기능하기에 매우 적합합니다.
     """)
 
-# [탭 4] 소질문 4: 머신러닝 예측 모델 학습 및 성능 평가
+# [탭 4] 소질문 4: 머신러닝 예측 모델 학습 및 성능 평가 (시각화 추가)
 with tab4:
     st.header("🤖 [소질문 4] 선형회귀(Linear Regression) 기반 에너지 예측 모델 학습 및 성능 검증")
-    st.write("연면적과 지상 층수를 독립 변수로 활용하여 공공건축물의 에너지 소비량을 예측하는 AI 모델을 학습하고 정확도를 검증합니다.")
+    st.write("연면적을 독립 변수로 활용하여 공공건축물의 에너지 소비량을 예측하는 AI 모델이 어떻게 학습되었는지 **회귀선 시각화**를 통해 확인합니다.")
     
-    features = ['연면적', '규모(지상)']
+    features = ['연면적'] # 시각화 직관성을 위해 연면적 단일 변수로 회귀선 표현
     X = df[features]
     y = df[target_col]
     
@@ -179,15 +182,37 @@ with tab4:
     with m1:
         st.metric("학습/테스트 데이터 분할", "80% : 20%", f"테스트 {len(X_test):,}건")
     with m2:
-        st.metric("🎯 결정계수 ($R^2$ Score)", f"{r2:.4f}", help="모델이 데이터의 경향성을 설명하는 정도 (1에 가까울수록 우수)")
+        st.metric("🎯 결정계수 ($R^2$ Score)", f"{r2:.4f}", help="모델이 데이터의 경향성을 설명하는 정도")
     with m3:
         st.metric("📉 평균 제곱 오차 (MSE)", f"{mse:,.2f}", help="예측값과 실제값 오차 크기")
         
     st.markdown("---")
+    
+    # [추가] 머신러닝 모델의 예측 과정과 결과가 왜 이렇게 나왔는지 보여주는 회귀선 시각화 그래프
+    st.subheader("📈 AI 예측 모델의 회귀선(Regression Line) 시각화")
+    st.write("아래 그래프의 **빨간색 직선**은 AI가 학습한 예측 모델입니다. 데이터들이 넓게 퍼져 있어서 직선 주변의 오차가 존재하기 때문에 $R^2$ 값이 도출되는 과정을 눈으로 확인할 수 있습니다.")
+    
+    vis_df = X_test.copy()
+    vis_df['Actual'] = y_test
+    vis_df['Predicted'] = y_pred
+    
+    fig_reg = px.scatter(
+        vis_df, x='연면적', y='Actual', opacity=0.7,
+        title="실제 테스트 데이터(파란 점) vs AI 예측 회귀선(빨간 선)",
+        labels={'연면적': '연면적 (㎡)', 'Actual': '단위면적당 에너지 소비량 (kWh/㎡)'},
+        range_x=[0, 60000]
+    )
+    # 회귀선 추가
+    fig_reg.add_traces(px.line(vis_df.sort_values(by='연면적'), x='연면적', y='Predicted').data[0])
+    fig_reg.data[1].line.color = 'red'
+    fig_reg.data[1].name = 'AI 회귀 예측선'
+    
+    st.plotly_chart(fig_reg, use_container_width=True)
+    
     st.success(f"""
     💡 **[모델 평가 결과 및 도출 결론]**
-    * **결론**: 연면적과 지상 층수만으로 학습한 선형회귀 모델의 결정계수($R^2$)는 **{r2:.4f}**로 도출되었습니다. 
-    * **시사점**: 건물의 기본적인 물리적 규모가 에너지 소비량 예측에 유의미한 영향력을 가짐을 증명하였으며, 향후 설계 초기 단계에서 예상 에너지 부하를 가늠하는 유용한 도구로 활용할 수 있습니다.
+    * **결론**: 회귀선 주변에 데이터가 넓게 퍼져 있는 것은 건물마다 단열 성능, 설비 효율 등 다른 변수가 작용하기 때문입니다. 따라서 결정계수($R^2$)가 **{r2:.4f}**로 측정되었으며, 이는 규모 외의 추가 변수가 존재함을 시사합니다.
+    * **시사점**: AI 모델이 전체적인 에너지 소비 트렌드를 우상향/우하향 형태로 잡아내는 과정을 시각적으로 증명할 수 있습니다.
     """)
 
 # [탭 5] 소질문 5: 실시간 설계 조건 변경 및 최적화 시뮬레이터
@@ -202,9 +227,9 @@ with tab5:
         
         v_area = st.slider(
             "📐 건물 연면적 (㎡)",
-            min_value=float(X['연면적'].min()),
+            min_value=float(df['연면적'].min()),
             max_value=50000.0,
-            value=float(X['연면적'].median()),
+            value=float(df['연면적'].median()),
             step=500.0,
             key="sim_area"
         )
@@ -213,12 +238,12 @@ with tab5:
             "🏢 지상 층수 (층)",
             min_value=1.0,
             max_value=30.0,
-            value=float(X['규모(지상)'].median()),
+            value=float(df['규모(지상)'].median()),
             step=1.0,
             key="sim_floor"
         )
         
-        input_df = pd.DataFrame([[v_area, v_floor]], columns=features)
+        input_df = pd.DataFrame([[v_area]], columns=['연면적'])
         pred_val = max(0.0, float(model.predict(input_df)[0]))
         avg_val = float(df[target_col].mean())
         diff_val = pred_val - avg_val
